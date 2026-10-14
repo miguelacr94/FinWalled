@@ -1,0 +1,99 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "strictPropertyInitialization": false,
+    "types": [
+      "vitest/globals",
+      "node"
+    ],
+    "paths": {
+      "@app/user": [
+        "./libs/user/src/index.ts"
+      ],
+      "@app/user/*": [
+        "./libs/user/src/*"
+      ],
+      "@app/account": [
+        "./libs/account/src/index.ts"
+      ],
+      "@app/account/*": [
+        "./libs/account/src/*"
+      ],
+      "@app/transaction": [
+        "./libs/transaction/src/index.ts"
+      ],
+      "@app/transaction/*": [
+        "./libs/transaction/src/*"
+      ],
+      "@app/auth": [
+        "./libs/auth/src/index.ts"
+      ],
+      "@app/auth/*": [
+        "./libs/auth/src/*"
+      ],
+      "@app/shared": [
+        "./libs/shared/src/index.ts"
+      ],
+      "@app/shared/*": [
+        "./libs/shared/src/*"
+      ],
+      "@app/notification": [
+        "./libs/notification/src/index.ts"
+      ],
+      "@app/notification/*": [
+        "./libs/notification/src/*"
+      ]
+    }
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/wallet-api/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/accounts/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/notifications/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/transactions/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/api-gateway/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/auth/tsconfig.app.json"
+    },
+    {
+      "path": "./libs/user/tsconfig.lib.json"
+    },
+    {
+      "path": "./libs/account/tsconfig.lib.json"
+    },
+    {
+      "path": "./libs/transaction/tsconfig.lib.json"
+    },
+    {
+      "path": "./libs/auth/tsconfig.lib.json"
+    },
+    {
+      "path": "./libs/shared/tsconfig.lib.json"
+    }
+  ]
+}

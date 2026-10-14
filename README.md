@@ -12,6 +12,7 @@ FinWallet es el motor transaccional de nueva generación diseñado para procesar
 ---
 
 ## 📌 Tabla de Contenidos
+
 1. [Contexto y Problemática de Negocio](#-contexto-y-problemática-de-negocio)
 2. [Arquitectura y Patrones Clave](#-arquitectura-y-patrones-clave)
 3. [Casos de Uso Principales](#-casos-de-uso-principales)
@@ -27,11 +28,11 @@ FinWallet es el motor transaccional de nueva generación diseñado para procesar
 
 En una fase de hipercrecimiento con más de **10,000 transacciones por minuto en picos**, los sistemas monolíticos tradicionales fallan típicamente en tres frentes críticos:
 
-| Problema Crítico | Impacto en el Negocio | Solución en FinWallet |
-| :--- | :--- | :--- |
-| **Doble Clic & Concurrencia Extrema** | Clientes haciendo clic 50 veces simultáneas generan balances negativos o dinero duplicado ("dinero fantasma"). | **Doble partida contable (Ledger)** + **Transacciones ACID con Locks** + **Validación de Balance No Negativo**. |
-| **Terceros Lentos e Inestables** | La pasarela bancaria ("BankAPI") tarda hasta 25s y falla en el 20% de peticiones, agotando los hilos HTTP. | **Desacoplamiento asíncrono (`202 Accepted`)** + **RabbitMQ** + **Circuit Breaker** + **Idempotencia**. |
-| **Saturación en Lecturas (Feed)** | El 90% del tráfico busca el historial de movimientos esperando tiempos menores a 50ms, saturando el motor OLTP. | **Paginación eficiente por cursor opaco** indexado ($O(1)$) preparada para separación CQRS. |
+| Problema Crítico                      | Impacto en el Negocio                                                                                           | Solución en FinWallet                                                                                           |
+| :------------------------------------ | :-------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
+| **Doble Clic & Concurrencia Extrema** | Clientes haciendo clic 50 veces simultáneas generan balances negativos o dinero duplicado ("dinero fantasma").  | **Doble partida contable (Ledger)** + **Transacciones ACID con Locks** + **Validación de Balance No Negativo**. |
+| **Terceros Lentos e Inestables**      | La pasarela bancaria ("BankAPI") tarda hasta 25s y falla en el 20% de peticiones, agotando los hilos HTTP.      | **Desacoplamiento asíncrono (`202 Accepted`)** + **RabbitMQ** + **Circuit Breaker** + **Idempotencia**.         |
+| **Saturación en Lecturas (Feed)**     | El 90% del tráfico busca el historial de movimientos esperando tiempos menores a 50ms, saturando el motor OLTP. | **Paginación eficiente por cursor opaco** indexado ($O(1)$) preparada para separación CQRS.                     |
 
 ---
 
@@ -43,7 +44,7 @@ FinWallet está diseñado con principios de **Clean / Hexagonal Architecture** y
 flowchart TD
     Client([Cliente / Web / Mobile]) -->|HTTP / REST + JWT| Gateway[API Gateway / Throttler / Helmet]
     Gateway -->|HTTP / RPC| TransactService[Transactions Core]
-    
+
     subgraph "Escritura Transaccional (ACID)"
         TransactService -->|Doble Partida / Locks| Postgres[(PostgreSQL OLTP)]
         TransactService -->|Guarda Evento| Outbox[(Outbox Table)]
@@ -62,6 +63,7 @@ flowchart TD
 ```
 
 ### Patrones de Diseño Implementados:
+
 1. **Double-Entry Ledger (Libro Mayor de Doble Partida):**
    - El dinero nunca se incrementa ni se reduce arbitrariamente. Toda operación crea al menos dos asientos contables balanceados (`DEBIT` y `CREDIT`) donde $\sum \text{Débitos} = \sum \text{Créditos}$.
 2. **Transactional Outbox Pattern (`SKIP LOCKED`):**
@@ -78,13 +80,15 @@ flowchart TD
 ## 🎯 Casos de Uso Principales
 
 ### 1. Transferencias Peer-to-Peer (P2P) Inmediatas
+
 - **Flujo:** Envío de fondos entre usuarios vía email o identificador de cuenta.
-- **Garantías:** 
+- **Garantías:**
   - Verificación estricta de fondos disponibles.
   - Bloqueo pesimista/optimista a nivel de registro para evitar saldo negativo ante ráfagas de solicitudes simultáneas.
   - Generación de asientos de libro mayor inmutables.
 
 ### 2. Recargas Asíncronas (Depósitos Bancarios)
+
 - **Flujo:** Solicitud de depósito contra banco externo legacy.
 - **Garantías:**
   - El Gateway responde de inmediato con `202 Accepted` y el identificador de la operación.
@@ -92,6 +96,7 @@ flowchart TD
   - En caso de latencia extrema o fallos de red (20%), el Circuit Breaker y los reintentos exponenciales gestionan la resiliencia sin bloquear la API.
 
 ### 3. Consulta de Historial / Feed en Alta Concurrencia
+
 - **Flujo:** Consulta paginada de todos los débitos y créditos del usuario.
 - **Garantías:**
   - Tiempo de respuesta constante ($< 50\text{ms}$) sin degradación por volumen de registros históricos.
@@ -101,14 +106,14 @@ flowchart TD
 
 ## 💻 Stack Tecnológico
 
-| Componente | Tecnología | Razón de Elección |
-| :--- | :--- | :--- |
-| **Framework** | NestJS 10 (TypeScript) | Arquitectura modular, inyección de dependencias robusta y soporte nativo para microservicios. |
-| **Base de Datos Transaccional** | PostgreSQL 15 | Soporte ACID estricto, row-level locks, restricciones `CHECK` y aislamiento transaccional. |
-| **ORM / Query Builder** | Prisma ORM | Tipado estricto end-to-end, migraciones versionadas y control transaccional `$transaction`. |
-| **Message Broker** | RabbitMQ | Enrutamiento AMQP flexible, confiabilidad en colas, reintentos y soporte de DLQ. |
-| **Auditoría e Idempotencia** | MongoDB | Esquema flexible para payload de auditoría, enmascaramiento de datos y TTL indexes. |
-| **Seguridad Perimetral** | Helmet & Rate Limiting | Protección contra ataques de fuerza bruta, DoS y cabeceras HTTP inseguras. |
+| Componente                      | Tecnología             | Razón de Elección                                                                             |
+| :------------------------------ | :--------------------- | :-------------------------------------------------------------------------------------------- |
+| **Framework**                   | NestJS 10 (TypeScript) | Arquitectura modular, inyección de dependencias robusta y soporte nativo para microservicios. |
+| **Base de Datos Transaccional** | PostgreSQL 15          | Soporte ACID estricto, row-level locks, restricciones `CHECK` y aislamiento transaccional.    |
+| **ORM / Query Builder**         | Prisma ORM             | Tipado estricto end-to-end, migraciones versionadas y control transaccional `$transaction`.   |
+| **Message Broker**              | RabbitMQ               | Enrutamiento AMQP flexible, confiabilidad en colas, reintentos y soporte de DLQ.              |
+| **Auditoría e Idempotencia**    | MongoDB                | Esquema flexible para payload de auditoría, enmascaramiento de datos y TTL indexes.           |
+| **Seguridad Perimetral**        | Helmet & Rate Limiting | Protección contra ataques de fuerza bruta, DoS y cabeceras HTTP inseguras.                    |
 
 ---
 
@@ -135,13 +140,16 @@ FinWallet/
 ## 🚀 Puesta en Marcha (Local / Docker)
 
 ### 1. Clonar el repositorio
+
 ```bash
 git clone https://github.com/miguelacr94/FinWalled.git
 cd FinWalled
 ```
 
 ### 2. Configurar Variables de Entorno
+
 Copia o verifica tu archivo `.env`:
+
 ```env
 PORT=3000
 DATABASE_URL="postgresql://postgres:password@localhost:5433/finwallet?schema=public"
@@ -151,15 +159,19 @@ JWT_SECRET="super-secret-jwt-key"
 ```
 
 ### 3. Levantar Infraestructura con Docker
+
 ```bash
 docker compose up -d
 ```
+
 Esto inicializará:
+
 - **PostgreSQL:** Puerto `5433` (mapeado a `5432` interno)
 - **RabbitMQ:** Puerto `5672` (AMQP) y `15672` (Management Dashboard: user `user`, pass `password`)
 - **MongoDB:** Puerto `27017`
 
 ### 4. Instalar Dependencias y Generar Prisma Client
+
 ```bash
 pnpm install
 npx prisma generate
@@ -167,6 +179,7 @@ npx prisma db push
 ```
 
 ### 5. Iniciar la Aplicación
+
 ```bash
 # Iniciar todos los servicios concurrentemente
 npm run start:all
@@ -183,18 +196,19 @@ npm run start:dev accounts
 
 Documentación interactiva disponible en Swagger: `http://localhost:3000/docs`
 
-| Método | Ruta | Descripción | Cabeceras Clave |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/auth/login` | Autenticación y obtención de JWT Bearer token | `Content-Type: application/json` |
-| `POST` | `/transactions/transfer` | Transferencia P2P inmediata | `Authorization: Bearer <token>`, `Idempotency-Key: <uuid>` |
-| `POST` | `/transactions/deposit` | Solicitud de depósito bancario asíncrono | `Authorization: Bearer <token>`, `Idempotency-Key: <uuid>` |
-| `GET` | `/transactions/history` | Historial paginado por cursor ($< 50\text{ms}$) | `Authorization: Bearer <token>` (`?limit=20&cursor=...`) |
+| Método | Ruta                     | Descripción                                     | Cabeceras Clave                                            |
+| :----- | :----------------------- | :---------------------------------------------- | :--------------------------------------------------------- |
+| `POST` | `/auth/login`            | Autenticación y obtención de JWT Bearer token   | `Content-Type: application/json`                           |
+| `POST` | `/transactions/transfer` | Transferencia P2P inmediata                     | `Authorization: Bearer <token>`, `Idempotency-Key: <uuid>` |
+| `POST` | `/transactions/deposit`  | Solicitud de depósito bancario asíncrono        | `Authorization: Bearer <token>`, `Idempotency-Key: <uuid>` |
+| `GET`  | `/transactions/history`  | Historial paginado por cursor ($< 50\text{ms}$) | `Authorization: Bearer <token>` (`?limit=20&cursor=...`)   |
 
 ---
 
 ## 🛡️ Estrategias de Concurrencia y Resiliencia
 
 ### 1. Prevención de Saldo Negativo
+
 ```sql
 -- Ejecutado dentro de transacciones atómicas de Prisma con bloqueo de fila:
 SELECT balance FROM "Account" WHERE id = :accountId FOR UPDATE;
@@ -202,12 +216,13 @@ SELECT balance FROM "Account" WHERE id = :accountId FOR UPDATE;
 ```
 
 ### 2. Procesamiento Outbox Concurrente Seguro
+
 ```typescript
 // Workers concurrentes consumiendo sin pisarse mediante SKIP LOCKED:
-SELECT * FROM "OutboxEvent" 
-WHERE status = 'PENDING' 
-ORDER BY "createdAt" ASC 
-LIMIT 50 
+SELECT * FROM "OutboxEvent"
+WHERE status = 'PENDING'
+ORDER BY "createdAt" ASC
+LIMIT 50
 FOR UPDATE SKIP LOCKED;
 ```
 
@@ -215,6 +230,6 @@ FOR UPDATE SKIP LOCKED;
 
 ## 👨‍💻 Autor
 
-- **Miguel Contreras** — *Backend Senior & Software Architect*
+- **Miguel Contreras** — _Backend-Developer_
 - GitHub: [@miguelacr94](https://github.com/miguelacr94)
 - Repositorio: [https://github.com/miguelacr94/FinWalled](https://github.com/miguelacr94/FinWalled)

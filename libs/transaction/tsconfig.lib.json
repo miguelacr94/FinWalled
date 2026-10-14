@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "outDir": "../../dist/libs/transaction",
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../dist/libs/transaction.tsbuildinfo"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"],
+  "references": [
+    { "path": "../account/tsconfig.lib.json" },
+    { "path": "../shared/tsconfig.lib.json" }
+  ]
+}

@@ -1,0 +1,103 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_ACCOUNTS")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/@prisma/client-accounts"
+}
+
+// DINERO: siempre Decimal(18,2) (nunca Float). El motor de la BD hace la aritmética exacta.
+model Account {
+  id            String   @id @default(uuid())
+  accountNumber String   @unique
+  bank          String   @default("FinWallet")
+  balance       Decimal  @default(0) @db.Decimal(18, 2)
+  userId        String   // Relacionado de forma distribuida
+  status        String   @default("ACTIVE")
+  type          String   @default("SAVINGS")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  version   Int      @default(0) // Optimistic locking guard (defensa extra; el lock real es FOR UPDATE)
+}
+
+model OutboxEvent {
+  id          String   @id @default(uuid())
+  aggregateId String
+  type        String
+  payload     Json
+  status      String   @default("PENDING") // PENDING, PUBLISHED
+  createdAt   DateTime @default(now())
+
+  @@index([status, createdAt])
+}
+
+// Intención de transferencia emitida por el SERVIDOR.
+// Estados: CREATED -> PROCESSING -> COMPLETED | FAILED  (o EXPIRED si vence).
+// Regla: solo puede existir UNA intención activa (CREATED/PROCESSING) por cuenta origen.
+// Esa regla la impone un índice único PARCIAL creado por SQL (ver PrismaTransactionRepository.onModuleInit),
+// porque Prisma no soporta índices parciales en el schema.
+model TransferIntent {
+  id            String   @id @default(uuid())
+  userId        String
+  fromAccountId String
+  toAccountId   String
+  amount        Decimal  @db.Decimal(18, 2)
+  status        String   @default("CREATED")
+  failureReason String?
+  transactionId String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([fromAccountId, status])
+  @@index([status, expiresAt])
+}
+
+// Recarga con el banco externo. La BD es la fuente de verdad del proceso:
+// PENDING -> PROCESSING -> COMPLETED | FAILED, con reintentos (attempts / nextAttemptAt).
+// Un "sweeper" re-procesa lo que esté vencido, así que ningún mensaje perdido deja una recarga huérfana.
+// Reglas (índices): (userId, idempotencyKey) único si el cliente manda llave, y un índice
+// único PARCIAL (accountId, amount, cardToken) mientras la recarga esté activa (anti doble cobro sin depender del front).
+model Deposit {
+  id             String    @id @default(uuid())
+  userId         String
+  accountId      String
+  amount         Decimal   @db.Decimal(18, 2)
+  cardToken      String
+  idempotencyKey String?
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  lockedUntil    DateTime?
+  bankReference  String?
+  failureReason  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  completedAt    DateTime?
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedUntil])
+}
+
+// Libro mayor (partida doble) y a la vez el modelo de lectura del historial.
+// Se escribe en la MISMA transacción que mueve el saldo: o existe todo o nada.
+// El índice (userId, createdAt desc, id desc) permite paginar por cursor sin escanear tablas.
+model LedgerEntry {
+  id                    String   @id @default(uuid())
+  transactionId         String
+  type                  String   // TRANSFER | DEPOSIT
+  direction             String   // DEBIT | CREDIT
+  accountId             String
+  userId                String
+  counterpartyAccountId String?
+  amount                Decimal  @db.Decimal(18, 2)
+  balanceAfter          Decimal  @db.Decimal(18, 2)
+  createdAt             DateTime @default(now())
+
+  @@unique([transactionId, accountId, direction])
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([accountId, createdAt(sort: Desc), id(sort: Desc)])
+}
